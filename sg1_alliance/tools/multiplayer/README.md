@@ -11,6 +11,10 @@ Default set: only network-game code paths, multiplayer menus, or the "simulated"
 - clientfx / clientfx2 / clientfx3 / clientfx5 --marker (other players lying / revived / look up-down, needs game_hooks/recomp_0027_remote_player_look.patch)
 - animfix, simfuncs, melee, reload (weapon pose, crouch/walk legs, melee and reload animations of other players)
 - pkgext (widens export size fields only, no new names/imports: the client rejects those)
+- clientdown + downself (a downed joining player cannot walk or shoot, and lies flat on his own screen)
+- clienthud (a joining player's HUD bar shows his health)
+- sceneend + sceneend2 (a joining player gets his character and HUD back after a cutscene)
+- crosshair (a joining player's crosshair turns green on allies / red on enemies)
 - nopause (the Tab screen does not pause a network game; single player still pauses)
 - UnrealEngine2.ini, net driver sections only: LanServerMaxTickRate/NetServerMaxTickRate 60, MaxClientRate 100000, ConnectionTimeout 60
   (smoother remote players; a joiner is not dropped while a big map loads)
