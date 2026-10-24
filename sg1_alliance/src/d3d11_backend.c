@@ -267,6 +267,7 @@ static const char g_hlsl[] =
 "        col = saturate(i.d0);\n"
 "        if (g_tex[0].z > 0.5) col *= samp(0u, i.t0.xy * g_tex[0].xy);\n"
 "    }\n"
+"    if (g_fogc.w > 0.5) col.rgb = lerp(g_fogc.rgb, col.rgb, saturate(i.fog.x));\n"   /* SG1: program-batch distance fog */
 "    if (g_misc.y != 0u) {\n"
 "        int v = (int)(col.a * 255.0 + 0.5), r = (int)(g_misc.w & 255u);\n"
 "        bool apass = true;\n"

@@ -2552,6 +2552,9 @@ static int ffp_vertex(uint32_t index, Nv2aVshOutput *out)
     out->pos[1] = (clip[1] / w + off[1]) * s_gpu.aa_sy;
     out->pos[2] = clip[2] / w + off[2];
     out->pos[3] = w;
+    /* SG1: fixed-function fog coordinate = eye-space depth (the clip w of a perspective transform). It was left 0, so
+     * fog_factor() gave the same value for every vertex and the maps' distance fog (ZoneInfo bDistanceFog) never showed. */
+    out->fog[0] = w;
 
     if (!lit_color(index, c) && !fetch_attr(color_attr(), index, c))
         c[0] = c[1] = c[2] = c[3] = 1.0f;
@@ -2783,6 +2786,16 @@ static void bex_flush_inner(void)
     memcpy(&b.rc, &s_gpu.rc, sizeof b.rc);
     nv2a_rc_unpack(s_gpu.fog_color, b.fog_color);
     { float r = b.fog_color[2]; b.fog_color[2] = b.fog_color[0]; b.fog_color[0] = r; }
+    {   /* SG1: distance fog for vertex-program batches. Their pixel shaders own the final combiner and leave the
+         * fog register out, so ZoneInfo distance fog never reached terrain/meshes drawn that way. fog_color[3] = 1
+         * asks the shader to blend the fog in itself (not on additive passes). SG1_NO_FOGFIX=1 turns it off. */
+        static int nf = -1; uint32_t f0 = s_gpu.rc.final0, f1 = s_gpu.rc.final1; int uses = 0, q;
+        if (nf < 0) nf = getenv("SG1_NO_FOGFIX") != NULL;
+        for (q = 0; q < 4; q++) if (((f0 >> (q * 8)) & 15u) == 3u) uses = 1;
+        if (((f1 >> 24) & 15u) == 3u || ((f1 >> 16) & 15u) == 3u) uses = 1;
+        b.fog_color[3] = (!nf && s_gpu.fog_enable && !uses && batch_uses_program()
+                          && !(rs.blend_enable && rs.blend_dst == 0x0001)) ? 1.0f : 0.0f;
+    }
     {   /* SG1 probe: RECOMP_DEBUG_LOGS=1: small HUD-atlas batches (256x256 fmt 06): screen bbox, UV range and which way U runs (x at the lowest / highest U) */
         static int bl = -1;
         static unsigned long seen[160]; static int nseen;
@@ -3541,7 +3554,7 @@ static void raster_xf_triangle(const Nv2aVshOutput *va, const Nv2aVshOutput *vb,
         o = &s_bxv[s_bxn];
         for (k = 0; k < 3; k++) {
             memcpy(&o[k], v[k], sizeof o[k]);
-            o[k].fog[0] = fog_factor(v[k]->fog[0]);
+            o[k].fog[0] = fog_factor((s_gpu.xf_mode & 3) == 2 && v[k]->fog[0] == 0.0f ? v[k]->pos[3] : v[k]->fog[0]);   /* SG1: programs that leave oFog 0: eye depth */
         }
         s_bxn += 3;
         return;
