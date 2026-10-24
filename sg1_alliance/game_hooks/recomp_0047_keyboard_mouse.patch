@@ -24,7 +24,7 @@
 +            kbd_re = 1;
 +            while (kcount < 16 && mkb_kbd_pop(&kvk, &kdn, &krp, &kch)) {
 +                kcount++;
-+                if (kvk < 8 || (kvk > 0xDF && kvk != 0xF3 && kvk != 0xF4 && kvk != 0xEC && kvk != 0xED)) continue;
++                if ((kvk < 8 && kvk != 0x04) || (kvk > 0xDF && kvk != 0xF3 && kvk != 0xF4 && kvk != 0xEC && kvk != 0xED)) continue;   /* 0x04 = IK_MiddleMouse (mkb_input pushes it) */
 +                { extern void mkb_set_console(int); extern int mkb_text_mode(void);
 +                  if (kdn && !krp && (kvk == 0xC0 || kvk == 0xDF || kvk == 0xF3 || kvk == 0xF4)) mkb_set_console(1);
 +                  else if (kdn && !krp && (kvk == 0x54 || kvk == 0x59) && !mkb_text_mode()) mkb_set_console(1);   /* T / Y open chat */

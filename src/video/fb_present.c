@@ -381,13 +381,34 @@ extern int g_sg1_mode_w, g_sg1_mode_h;
 static const struct { int w, h; } s_gres[3] = { { 1920, 1080 }, { 1280, 720 }, { 640, 480 } };
 static int s_gres_sel = -1;
 static void gres_init(void) { if (s_gres_sel < 0) { int i; s_gres_sel = 1; for (i = 0; i < 3; i++) if (g_sg1_mode_w == s_gres[i].w && g_sg1_mode_h == s_gres[i].h) s_gres_sel = i; } }
-static int mn_items(void) { return s_mn_page == 4 ? (int)(sizeof s_mn_gfx / sizeof *s_mn_gfx) : s_mn_page == 3 ? (int)(sizeof s_mn_hud / sizeof *s_mn_hud) : s_mn_page == 2 ? NPC_COUNT + 1 : s_mn_page ? (int)(sizeof s_mn_dbg / sizeof *s_mn_dbg) : (int)(sizeof s_mn_main / sizeof *s_mn_main); }
-static int mn_code(int i) { return s_mn_page == 4 ? s_mn_gfx[i] : s_mn_page == 3 ? s_mn_hud[i] : s_mn_page == 2 ? 1000 + i : s_mn_page ? s_mn_dbg[i] : s_mn_main[i]; }
+/* SG1: voice menu (V in game): each row presses a key whose User.ini binding is  Taunt <MSGID>  (NumPad0-9, F13-F17;
+ * written by tools\controls_preset.py; patch_coop_voicetaunt.py makes ServerTaunt call the voice pack), so nothing is typed
+ * into the console. Only IDs that all four SG-1 voice packs have. Wheel = select, left click = say. */
+static const struct { const char *label, *id; unsigned vk; } s_voice[] = {
+    { "Taunt",              "MSGID_Taunt",            0x61 }, { "OK / affirmative",   "MSGID_Ok",               0x62 },
+    { "Negative",           "MSGID_NotOk",            0x63 }, { "Ready",              "MSGID_Ready",            0x64 },
+    { "Enemy spotted",      "MSGID_SpotEnemy",        0x65 }, { "Take cover",         "MSGID_TakeCover",        0x66 },
+    { "Enemy killed",       "MSGID_EnemyKilled",      0x67 }, { "Area clear",         "MSGID_AllEnemiesKilled", 0x68 },
+    { "Under fire",         "MSGID_UnderFire",        0x69 }, { "Team under fire",    "MSGID_TeamUnderFire",    0x60 },
+    { "Man down",           "MSGID_ManDown",          0x7C }, { "In cover",           "MSGID_InCoverPosition",  0x7D },
+    { "Holding fire",       "MSGID_HoldingFire",      0x7E }, { "Firing",             "MSGID_Firing",           0x7F },
+    { "Friendly fire!",     "MSGID_FriendlyFire",     0x80 },
+};
+#define VOICE_COUNT ((int)(sizeof s_voice / sizeof *s_voice))
+static void mn_say(int row)
+{
+    extern void mkb_tap_key(unsigned vk);
+    if (row < 0 || row >= VOICE_COUNT) return;
+    mkb_tap_key(s_voice[row].vk);
+}
+static int mn_items(void) { if (s_mn_page == 5) return VOICE_COUNT; return s_mn_page == 4 ? (int)(sizeof s_mn_gfx / sizeof *s_mn_gfx) : s_mn_page == 3 ? (int)(sizeof s_mn_hud / sizeof *s_mn_hud) : s_mn_page == 2 ? NPC_COUNT + 1 : s_mn_page ? (int)(sizeof s_mn_dbg / sizeof *s_mn_dbg) : (int)(sizeof s_mn_main / sizeof *s_mn_main); }
+static int mn_code(int i) { if (s_mn_page == 5) return 2000 + i; return s_mn_page == 4 ? s_mn_gfx[i] : s_mn_page == 3 ? s_mn_hud[i] : s_mn_page == 2 ? 1000 + i : s_mn_page ? s_mn_dbg[i] : s_mn_main[i]; }
 
 static void mn_text(int i, char *b, int n)
 {
     int c = mn_code(i);
     b[0] = 0;
+    if (c >= 2000) { int k = c - 2000; snprintf(b, n, "%s", s_voice[k].label); return; }
     if (c >= 1000) { if (c == 1000) snprintf(b, n, "AI (bStartup)  < %s >   Right = toggle", s_ai_on ? "ON" : "off"); else if (c - 1001 < NPC_COUNT) snprintf(b, n, "%s%s", s_npc_def[c - 1001].name, s_npc_def[c - 1001].ctrl ? "" : "  (no AI)"); return; }
     if (c == 3) { gres_init(); snprintf(b, n, "Game res (EXPERIMENTAL) < %dx%d >", s_gres[s_gres_sel].w, s_gres[s_gres_sel].h); }
     else if (c == 0) snprintf(b, n, "Mouse sensitivity   < %.1f >", (double)mkb_scale_get());
@@ -458,8 +479,29 @@ static void sg1_menu_frame(HWND hwnd, uint32_t *px, uint32_t w, uint32_t h)
     static int p_ret;
     int rete = ret && !p_ret;
     p_ret = ret;
+    /* Voice menu (V): an overlay only - the game keeps the keyboard and mouse (move, look, aim). It takes just the mouse wheel
+     * (select, no weapon switch) and the left button (say, no shot) - see g_sg1_voice_open in mkb_input.c. */
+    static int p_v, p_lb, s_voice_open, s_voice_sel;   /* s_voice_sel: the row the voice menu was left on (kept for the next open) */
+    int vkey = mn_key_edge('V', &p_v), lclick = mn_key_edge(VK_LBUTTON, &p_lb);
     mn_chain_tick();
     if (!fg) return;
+    {   extern int mkb_in_game(void); extern int mkb_text_mode(void); extern int mkb_menu_wheel(void);
+        extern volatile LONG g_sg1_voice_open, g_sg1_lb_suppress;
+        if (s_voice_open && (!mkb_in_game() || mkb_text_mode() || open || ins || esc)) { s_voice_open = 0; g_sg1_voice_open = 0; }
+        if (vkey && !open && !mkb_text_mode() && (s_voice_open || mkb_in_game())) {
+            s_voice_open = !s_voice_open; g_sg1_voice_open = s_voice_open; mkb_menu_wheel();
+            if (s_voice_open) s_mn_sel = s_voice_sel;
+        }
+        if (s_voice_open) {
+            int wh = mkb_menu_wheel();
+            if (wh) s_mn_sel = ((s_mn_sel - wh) % VOICE_COUNT + VOICE_COUNT) % VOICE_COUNT;
+            if (s_mn_sel >= VOICE_COUNT || s_mn_sel < 0) s_mn_sel = 0;
+            s_voice_sel = s_mn_sel;
+            if (lclick) { mn_say(s_mn_sel); s_voice_open = 0; g_sg1_voice_open = 0; g_sg1_lb_suppress = 1; return; }
+            s_mn_page = 5; open = 1;                         /* draw page 5 below; the Insert menu stays closed (g_sg1_menu_open = 0) */
+            ins = esc = up = dn = lt = rt = rete = pgup = 0;
+        }
+    }
     if (pgup) { if (open && s_mn_page == 2) { open = 0; g_sg1_menu_open = 0; } else { open = 1; g_sg1_menu_open = 1; s_mn_page = 2; s_mn_sel = 0; } ins = 0; esc = 0; }
     if (open && esc && s_mn_page == 2) { open = 0; g_sg1_menu_open = 0; esc = 0; ins = 0; }
     if (open && esc && s_mn_page) { s_mn_page = 0; s_mn_sel = 0; esc = 0; ins = 0; }   /* Esc on the debug page goes back */
@@ -479,7 +521,7 @@ static void sg1_menu_frame(HWND hwnd, uint32_t *px, uint32_t w, uint32_t h)
         if (s_mn_sel >= n) s_mn_sel = 0;
         {
             int fpx = (int)h / 28; if (fpx < 14) fpx = 14; if (fpx > 40) fpx = 40;
-            int pw = fpx * (s_mn_page == 1 ? 40 : s_mn_page == 2 ? 34 : s_mn_page == 3 ? 30 : s_mn_page == 4 ? 40 : 22), x0 = fpx, y0 = fpx, x, y;
+            int pw = fpx * (s_mn_page == 5 ? 11 : s_mn_page == 1 ? 40 : s_mn_page == 2 ? 34 : s_mn_page == 3 ? 30 : s_mn_page == 4 ? 40 : 22), x0 = fpx, y0 = fpx, x, y;
             static int s_top;
             int rows = n, ph;
             { int vis = ((int)h - 2 * y0) / fpx - 4; if (vis < 4) vis = 4; if (rows > vis) rows = vis; }   /* long lists scroll instead of running off the screen */
@@ -487,7 +529,7 @@ static void sg1_menu_frame(HWND hwnd, uint32_t *px, uint32_t w, uint32_t h)
             if (s_mn_sel >= s_top + rows) s_top = s_mn_sel - rows + 1;
             if (s_top > n - rows) s_top = n - rows;
             if (s_top < 0) s_top = 0;
-            ph = fpx * (rows + 4);
+            ph = fpx * (rows + (s_mn_page == 5 ? 2 : 4));
             BITMAPINFO bi; void *bits = NULL; HBITMAP bmp; HDC dc; HFONT fnt, old; RECT rc; uint32_t *dib;
             if (pw > (int)w - 2 * x0) pw = (int)w - 2 * x0;
             if (ph > (int)h - 2 * y0) ph = (int)h - 2 * y0;
@@ -505,7 +547,7 @@ static void sg1_menu_frame(HWND hwnd, uint32_t *px, uint32_t w, uint32_t h)
             old = (HFONT)SelectObject(dc, fnt);
             SetBkMode(dc, TRANSPARENT);
             SetTextColor(dc, RGB(255, 255, 255));
-            { const char *tt = s_mn_page == 2 ? "NPC SPAWNER  (Right = spawn, Del/Esc closes)" : s_mn_page == 4 ? "GRAPHICS  (Esc = back, Insert closes)" : s_mn_page == 3 ? "HUD  (Esc = back, Insert closes)" : s_mn_page ? "DEBUG  (Esc = back, Insert closes)" : "SETTINGS  (Insert closes)"; TextOutA(dc, fpx / 2, fpx / 3, tt, (int)strlen(tt)); }
+            { const char *tt = s_mn_page == 5 ? "VOICE" : s_mn_page == 2 ? "NPC SPAWNER  (Right = spawn, Del/Esc closes)" : s_mn_page == 4 ? "GRAPHICS  (Esc = back, Insert closes)" : s_mn_page == 3 ? "HUD  (Esc = back, Insert closes)" : s_mn_page ? "DEBUG  (Esc = back, Insert closes)" : "SETTINGS  (Insert closes)"; TextOutA(dc, fpx / 2, fpx / 3, tt, (int)strlen(tt)); }
             for (r = s_top; r < s_top + rows; r++) {
                 char line[96];
                 int ty = fpx * (r - s_top + 2);
@@ -519,7 +561,7 @@ static void sg1_menu_frame(HWND hwnd, uint32_t *px, uint32_t w, uint32_t h)
                 TextOutA(dc, fpx / 2, ty, line, (int)strlen(line));
             }
             SetTextColor(dc, RGB(150, 150, 150));
-            { char hl[96]; if (mn_code(s_mn_sel) == 3) snprintf(hl, sizeof hl, "Without the HD .bat, changing this will crash you!"); else if (s_mn_page == 2) snprintf(hl, sizeof hl, "Row 1 = AI switch. Shift = redo setup (%d/%d)", s_mn_sel + 1, n); else if (rows < n) snprintf(hl, sizeof hl, "Up/Down select  (%d/%d)", s_mn_sel + 1, n); else snprintf(hl, sizeof hl, "Up/Down select  Left/Right change"); TextOutA(dc, fpx / 2, fpx * (rows + 2) + fpx / 3, hl, (int)strlen(hl)); }
+            if (s_mn_page != 5) { char hl[96]; if (mn_code(s_mn_sel) == 3) snprintf(hl, sizeof hl, "Without the HD .bat, changing this will crash you!"); else if (s_mn_page == 2) snprintf(hl, sizeof hl, "Row 1 = AI switch. Shift = redo setup (%d/%d)", s_mn_sel + 1, n); else if (rows < n) snprintf(hl, sizeof hl, "Up/Down select  (%d/%d)", s_mn_sel + 1, n); else snprintf(hl, sizeof hl, "Up/Down select  Left/Right change"); TextOutA(dc, fpx / 2, fpx * (rows + 2) + fpx / 3, hl, (int)strlen(hl)); }
             SelectObject(dc, old); DeleteObject(fnt);
             GdiFlush();
             dib = (uint32_t *)bits;
@@ -633,6 +675,7 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
          * freeze the game in its menu loop until you click, and the game
          * binds it (Gamma +). */
         if (w == 0x79) return 0;
+        if (w == VK_MENU) return 0;   /* SG1: Alt alone (quick weapon switch) must not start Windows' menu mode, which froze the game */
         return m == WM_SYSKEYDOWN ? DefWindowProcA(h, m, w, l) : 0;
 
     case WM_KEYUP:
@@ -650,7 +693,7 @@ static LRESULT CALLBACK fb_wndproc(HWND h, UINT m, WPARAM w, LPARAM l)
                 xbox_InputKeySet(VK_RSHIFT, 0);
             }
         }
-        if (w == 0x79) return 0;   /* F10: keep Windows' menu mode out */
+        if (w == 0x79 || w == VK_MENU) return 0;   /* F10 / Alt: keep Windows' menu mode out */
         return m == WM_SYSKEYUP ? DefWindowProcA(h, m, w, l) : 0;
 
     /* Mouse buttons go in the same table, for bindings that name them.

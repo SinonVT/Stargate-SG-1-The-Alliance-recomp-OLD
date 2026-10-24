@@ -25,7 +25,7 @@ FILES = [os.path.join('System', n) for n in ('StargateGame.u', 'Engine.u', 'Star
     os.path.join('System', 'tweak', 'MP', 'GameModes.ini'), os.path.join('System', 'UnrealEngine2.ini')]
 EXTRA_BAKS = ['.orig_coopstart', '.orig_coopchars', '.orig_coopnpc', '.orig_cooprestart', '.orig_cooprestart2', '.orig_cooprevive', '.orig_coopclientfx',
               '.orig_cooplistinfo', '.orig_coopclientfx2', '.orig_coopobj', '.orig_coopanimfix', '.orig_coopfx3', '.orig_coopext',
-              '.orig_coopsim', '.orig_coopmelee', '.orig_coopreload', '.orig_coopreviveFX', '.orig_coopdownpose', '.orig_coopselfrevive', '.orig_coopbleedout', '.orig_coopdownfix', '.orig_coopjoincut', '.orig_cooptakeover2', '.orig_coopnopause', '.orig_coopcross', '.orig_coopclientdown', '.orig_coopdownself', '.orig_coopclienthud', '.orig_coopsceneend', '.orig_coopsceneend2', '.orig_coopfx5', '.orig_coopmode', '.orig_coop']
+              '.orig_coopsim', '.orig_coopmelee', '.orig_coopreload', '.orig_coopreviveFX', '.orig_coopdownpose', '.orig_coopselfrevive', '.orig_coopbleedout', '.orig_coopdownfix', '.orig_coopjoincut', '.orig_cooptakeover2', '.orig_coopnopause', '.orig_coopcross', '.orig_coopclientdown', '.orig_coopdownself', '.orig_coopclienthud', '.orig_coopsceneend', '.orig_coopsceneend2', '.orig_coopvoicetaunt', '.orig_coopfx5', '.orig_coopmode', '.orig_coop']
 
 def paths():
     for f in FILES:
@@ -76,6 +76,7 @@ STEPS = [('patch_coop_start.py', []),                                   # campai
          ('patch_coop_clienthud.py', []),                               # client HUD bar shows his health (shield values are stale there)
          ('patch_coop_sceneend.py', []),                                # Engine.u: client keeps his character after a cutscene
          ('patch_coop_sceneend2.py', []),                               # client HUD comes back after a cutscene
+         ('patch_coop_voicetaunt.py', []),                              # Taunt <MSGID> keys say a voice line
          ('patch_coop_browser.py', [])]                                 # campaign servers visible in the System Link list
 extras = '--no-extras' not in sys.argv   # default: all fixes (--extras is still accepted)
 

@@ -15,6 +15,7 @@ Default set: only network-game code paths, multiplayer menus, or the "simulated"
 - clienthud (a joining player's HUD bar shows his health)
 - sceneend + sceneend2 (a joining player gets his character and HUD back after a cutscene)
 - crosshair (a joining player's crosshair turns green on allies / red on enemies)
+- voicetaunt (Taunt keys make your character say a line, e.g. Taunt MSGID_Taunt; heard by everyone)
 - nopause (the Tab screen does not pause a network game; single player still pauses)
 - UnrealEngine2.ini, net driver sections only: LanServerMaxTickRate/NetServerMaxTickRate 60, MaxClientRate 100000, ConnectionTimeout 60
   (smoother remote players; a joiner is not dropped while a big map loads)

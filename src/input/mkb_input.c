@@ -259,9 +259,9 @@ static void mkb_handle_raw(HRAWINPUT h)
         if (m->usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP)
             InterlockedAnd(&s_mouse_btn, ~2);
         if (m->usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_DOWN)
-            InterlockedOr(&s_mouse_btn, 4);
+            { InterlockedOr(&s_mouse_btn, 4); kq_push(0x04, 1, 0, 0); }   /* IK_MiddleMouse for the game's MiddleMouse= binding (ZoomToggle) */
         if (m->usButtonFlags & RI_MOUSE_MIDDLE_BUTTON_UP)
-            InterlockedAnd(&s_mouse_btn, ~4);
+            { InterlockedAnd(&s_mouse_btn, ~4); kq_push(0x04, 0, 0, 0); }
         if (m->usButtonFlags & RI_MOUSE_BUTTON_4_DOWN)
             InterlockedOr(&s_mouse_btn, 8);
         if (m->usButtonFlags & RI_MOUSE_BUTTON_4_UP)
@@ -274,7 +274,9 @@ static void mkb_handle_raw(HRAWINPUT h)
             SHORT d = (SHORT)m->usButtonData;
             int wn = d / WHEEL_DELTA, wi, wc = wn < 0 ? -wn : wn; unsigned wvk = wn > 0 ? 0xED : 0xEC;   /* IK_MouseWheelUp / Down */
             InterlockedAdd(&s_wheel, wn);
+            { extern volatile LONG g_sg1_mwheel; InterlockedAdd(&g_sg1_mwheel, wn); }   /* also counted for the SG1 overlay menus (voice menu scrolls) */
             if (wc > 4) wc = 4;
+            { extern volatile LONG g_sg1_voice_open; if (g_sg1_voice_open) wc = 0; }   /* voice menu open: the wheel selects a line, no weapon switch */
             for (wi = 0; wi < wc; wi++) { kq_push(wvk, 1, 0, 0); kq_push(wvk, 0, 0, 0); }   /* the game's MouseWheelUp/Down bindings (weapon select) */
         }
     } else if (ri->header.dwType == RIM_TYPEKEYBOARD) {
@@ -427,8 +429,8 @@ static void mkb_manage_cursor(int capture)
     static unsigned long last;
 
     unsigned long now = GetTickCount();
-    /* holding Alt or a Windows key lets go of the pointer so you can click out */
-    if (capture && ((GetAsyncKeyState(VK_MENU) & 0x8000) || (GetAsyncKeyState(VK_LWIN) & 0x8000) || (GetAsyncKeyState(VK_RWIN) & 0x8000))) { capture = 0; last = 0; }
+    /* holding a Windows key lets go of the pointer so you can click out (SG1: not Alt any more - Alt = quick weapon switch) */
+    if (capture && ((GetAsyncKeyState(VK_LWIN) & 0x8000) || (GetAsyncKeyState(VK_RWIN) & 0x8000))) { capture = 0; last = 0; }
     if (now - last < 150 && (capture ? hidden : !hidden) == 0)
         return;
     last = now;
@@ -654,6 +656,12 @@ void mkb_arm_name(int delay_ms)
 }
 static void nm_add(unsigned vk, int down, unsigned ch) { if (s_nm_n < 318) { s_nm_seq[s_nm_n].vk = (unsigned short)vk; s_nm_seq[s_nm_n].down = (unsigned char)down; s_nm_seq[s_nm_n].rep = 0; s_nm_seq[s_nm_n].ch = (unsigned short)ch; s_nm_n++; } }
 static volatile LONG s_nm_end;
+volatile LONG g_sg1_mwheel;
+volatile LONG g_sg1_voice_open;    /* V voice menu up: the game gets no mouse wheel and no left button (the rest still works) */
+volatile LONG g_sg1_lb_suppress;   /* voice menu closed by a left click: keep that press away from the game (fire) until released */
+int mkb_menu_wheel(void) { return (int)InterlockedExchange(&g_sg1_mwheel, 0); }
+/* SG1 voice menu: one key press for the game (its User.ini binding runs, e.g. NumPad1=Taunt MSGID_Ok) - no console typing */
+void mkb_tap_key(unsigned vk) { kq_push(vk, 1, 0, 0); kq_push(vk, 0, 0, 0); }
 int mkb_name_busy(void) { return s_nm_n > 0 || s_nm_due || (s_nm_end && (LONG)(GetTickCount() - (DWORD)s_nm_end) < 0); }
 static void autocmd_check(void)
 {   /* RECOMP_AUTOCMD="open M01A?Listen": typed into the game console once, RECOMP_AUTOCMD_DELAY seconds (default 30) after start */
@@ -782,6 +790,8 @@ int mkb_merge(DWORD dwPort, XBOX_INPUT_STATE *pState)
     }
     wheel = InterlockedExchange(&s_wheel, 0);
     btn   = (LONG)s_mouse_btn;   /* SG1: level, not a one-poll pulse: the game reads the pad far less often than we poll */
+    if (g_sg1_voice_open) btn &= ~0x01;
+    else if (g_sg1_lb_suppress) { if (btn & 0x01) btn &= ~0x01; else g_sg1_lb_suppress = 0; }
 
     memset(analog, 0, sizeof analog);
 
