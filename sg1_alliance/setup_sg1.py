@@ -72,6 +72,10 @@ try:   # the selected profile's name was never put into the join URL (the build 
     run('Making the selected profile set the player name (Engine.u)', [py, os.path.join(here, 'tools', 'patch_profile_name.py'), os.path.dirname(xbe)], cwd=here)
 except SystemExit:
     print('(profile name patch not applied; run tools\\patch_profile_name.py by hand)')
+try:
+    run('Raising texture detail, weather and high detail actors (UnrealEngine2.ini)', [py, os.path.join(here, 'tools', 'patch_gfx_ini.py'), os.path.dirname(xbe)], cwd=here)
+except SystemExit:
+    print('(graphics settings not applied; run tools\\patch_gfx_ini.py by hand)')
 if '--no-multiplayer' not in flags:
     try:   # co-op campaign / multiplayer fixes: network-only or menu-only changes, single player is not touched. --mp-no-extras leaves out the extras. Undo: tools\\multiplayer\\setup_multiplayer.py <game> --revert
         run('Applying the multiplayer / co-op script fixes', [py, os.path.join(here, 'tools', 'multiplayer', 'setup_multiplayer.py'), os.path.dirname(xbe)] + (['--no-extras'] if '--mp-no-extras' in flags else []), cwd=here)
