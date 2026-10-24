@@ -2,6 +2,7 @@
 """Higher quality settings the Xbox build had turned down (System\\UnrealEngine2.ini, section [XboxDrv.XboxClient], the one the game uses):
     TextureDetailWorld / Terrain / PlayerSkin / WeaponSkin / Interface / RenderMap   Lower -> High   (the Xbox skipped the top mip level)
     WeatherEffects   False -> True                                                    (rain / snow emitters were switched off)
+    NoFractalAnim    True -> False                                                    (animated fractal textures: water, energy, fire)
 and in [D3DDrv.D3DRenderDevice]:
     HighDetailActors / SuperHighDetailActors   false -> True   (actors marked high detail were never drawn - the rain is one of them)
 Only the Xbox default values are changed (Lower / False / false): a value the player set himself is left alone.
@@ -30,6 +31,8 @@ for i, l in enumerate(lines):
         k, v = t.split(b'=', 1)
         if k in WANT and v.lower() in (b'lower', b'false'):          # Xbox default only
             lines[i] = k + b'=' + WANT[k]; n += 1
+        if k == b'NoFractalAnim' and v.lower() == b'true':          # Xbox default only
+            lines[i] = b'NoFractalAnim=False'; n += 1
     if sec == b'[d3ddrv.d3drenderdevice]' and b'=' in t:
         k, v = t.split(b'=', 1)
         if k in (b'HighDetailActors', b'SuperHighDetailActors') and v.lower() == b'false':
@@ -37,4 +40,4 @@ for i, l in enumerate(lines):
 if n:
     if not os.path.exists(bak): shutil.copyfile(p, bak)
     open(p, 'wb').write(nl.join(lines))
-print('graphics settings: %d changed (textures High, weather on, high detail actors on)' % n if n else 'graphics settings: already applied')
+print('graphics settings: %d changed (textures High, weather on, high detail actors on, fractal animation on)' % n if n else 'graphics settings: already applied')
