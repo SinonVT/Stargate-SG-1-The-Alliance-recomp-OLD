@@ -5,7 +5,7 @@ The dump's default layout is the PC prototype layout (Ctrl=Jump, Alt=Fire, Z=Str
     B = ToggleBehindView (third person)     Ctrl = Duck        CapsLock = toggleInvisibility
     Z, MiddleMouse = ZoomToggle             Alt = SwitchToLastWeapon (quick switch)   Backspace = unbound
     Q = ConcentrateFire (team command: hold, look at a squad mate or an enemy, release)    E = OrderTakeCover (team command)
-    NumPad0-9, F13-F17 = voice lines (Taunt MSGID_...), pressed by the V voice menu
+    NumPad0-6/8/9, F13-F18 = voice lines (not NumPad7: it opens the console) (Taunt MSGID_...), pressed by the V voice menu
     Tab = unbound (the dump binds it to 'Type', which opened the console; the mission info screen still comes from Tab through the pad layer)
     W/A/S/D walking strength: the Xbox bindings (Speed=+-1200, scaled by frame time) give a tiny acceleration for keys, so
     walking felt stuck; all four directions use Speed=+-30000 (equal strength, so diagonals like W+A work).
@@ -20,7 +20,7 @@ if not a or a[0].startswith('--'): print(__doc__); sys.exit(1)
 sysdir = os.path.join(a[0].strip('"'), 'System'); revert = '--revert' in a
 KEYS = [('Ctrl', 'Duck'), ('Alt', 'SwitchToLastWeapon'), ('MiddleMouse', 'ZoomToggle'), ('CapsLock', 'toggleInvisibility'), ('Z', 'ZoomToggle'), ('Backspace', ''), ('B', 'ToggleBehindView'), ('Q', 'ConcentrateFire'), ('E', 'OrderTakeCover'), ('Tab', '')] + [(k, 'Taunt ' + v) for k, v in (   # voice lines for the V voice menu (fb_present.c) and patch_coop_voicetaunt.py
     ('NumPad1', 'MSGID_Taunt'), ('NumPad2', 'MSGID_Ok'), ('NumPad3', 'MSGID_NotOk'), ('NumPad4', 'MSGID_Ready'), ('NumPad5', 'MSGID_SpotEnemy'),
-    ('NumPad6', 'MSGID_TakeCover'), ('NumPad7', 'MSGID_EnemyKilled'), ('NumPad8', 'MSGID_AllEnemiesKilled'), ('NumPad9', 'MSGID_UnderFire'),
+    ('NumPad6', 'MSGID_TakeCover'), ('F18', 'MSGID_EnemyKilled'), ('NumPad8', 'MSGID_AllEnemiesKilled'), ('NumPad9', 'MSGID_UnderFire'),
     ('NumPad0', 'MSGID_TeamUnderFire'), ('F13', 'MSGID_ManDown'), ('F14', 'MSGID_InCoverPosition'), ('F15', 'MSGID_HoldingFire'),
     ('F16', 'MSGID_Firing'), ('F17', 'MSGID_FriendlyFire'))]
 ALIASES = {'MoveForward': 'Axis aBaseY Speed=+30000.0', 'MoveBackward': 'Axis aBaseY Speed=-30000.0',

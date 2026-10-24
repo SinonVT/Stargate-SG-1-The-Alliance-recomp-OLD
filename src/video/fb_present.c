@@ -388,7 +388,7 @@ static const struct { const char *label, *id; unsigned vk; } s_voice[] = {
     { "Taunt",              "MSGID_Taunt",            0x61 }, { "OK / affirmative",   "MSGID_Ok",               0x62 },
     { "Negative",           "MSGID_NotOk",            0x63 }, { "Ready",              "MSGID_Ready",            0x64 },
     { "Enemy spotted",      "MSGID_SpotEnemy",        0x65 }, { "Take cover",         "MSGID_TakeCover",        0x66 },
-    { "Enemy killed",       "MSGID_EnemyKilled",      0x67 }, { "Area clear",         "MSGID_AllEnemiesKilled", 0x68 },
+    { "Enemy killed",       "MSGID_EnemyKilled",      0x81 }   /* F18: NumPad7 opens the game console */, { "Area clear",         "MSGID_AllEnemiesKilled", 0x68 },
     { "Under fire",         "MSGID_UnderFire",        0x69 }, { "Team under fire",    "MSGID_TeamUnderFire",    0x60 },
     { "Man down",           "MSGID_ManDown",          0x7C }, { "In cover",           "MSGID_InCoverPosition",  0x7D },
     { "Holding fire",       "MSGID_HoldingFire",      0x7E }, { "Firing",             "MSGID_Firing",           0x7F },
