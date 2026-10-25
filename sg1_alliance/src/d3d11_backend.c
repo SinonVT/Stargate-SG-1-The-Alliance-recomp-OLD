@@ -341,6 +341,28 @@ static uint32_t                g_vb_bytes, g_vb_pos;
 static LONGLONG                g_t_total, g_t_vb, g_t_tex, g_t_call;
 static LONGLONG qpc(void) { LARGE_INTEGER q; QueryPerformanceCounter(&q); return q.QuadPart; }
 static ID3D11RasterizerState  *g_rs;
+/* SG1: rasterizer states with the title's polygon offset (D3D ZBIAS), cached by value. Without it,
+ * decals and projected shadows z-fight with the surface under them. SG1_NO_ZBIAS=1 turns it off. */
+static ID3D11RasterizerState *rs_for(const Nv2aRenderState *s)
+{
+    static struct { float sc, bi, dm; ID3D11RasterizerState *st; } c[32];
+    static int n, off = -1;
+    D3D11_RASTERIZER_DESC rd;
+    int i;
+    if (off < 0) off = getenv("SG1_NO_ZBIAS") != NULL;
+    if (off || !s->poly_offset_fill || (s->poly_offset_scale == 0.0f && s->poly_offset_bias == 0.0f)) return g_rs;
+    for (i = 0; i < n; i++) if (c[i].sc == s->poly_offset_scale && c[i].bi == s->poly_offset_bias && c[i].dm == s->depth_max) return c[i].st;
+    if (n == 32) return g_rs;
+    memset(&rd, 0, sizeof rd);
+    rd.FillMode = D3D11_FILL_SOLID;
+    rd.CullMode = D3D11_CULL_NONE;
+    rd.DepthClipEnable = TRUE;
+    rd.DepthBias = (INT)(s->poly_offset_bias * (16777216.0f / (s->depth_max > 0.0f ? s->depth_max : 16777215.0f)));   /* title bias is in z units of its own buffer */
+    rd.SlopeScaledDepthBias = s->poly_offset_scale;
+    if (FAILED(ID3D11Device_CreateRasterizerState(g_dev, &rd, &c[n].st))) return g_rs;
+    c[n].sc = s->poly_offset_scale; c[n].bi = s->poly_offset_bias; c[n].dm = s->depth_max;
+    return c[n++].st;
+}
 static ID3D11ShaderResourceView *g_white;
 static ID3D11ShaderResourceView *g_clear;
 static int                     g_init_failed;
@@ -1749,7 +1771,7 @@ static void be_draw(const Nv2aSurface *s, const Nv2aBatchEx *b)
     vp.Width = (float)pw_of(s->width); vp.Height = (float)pw_of(s->height);
     vp.MinDepth = 0.0f; vp.MaxDepth = 1.0f;
     ID3D11DeviceContext_RSSetViewports(g_ctx, 1, &vp);
-    ID3D11DeviceContext_RSSetState(g_ctx, g_rs);
+    ID3D11DeviceContext_RSSetState(g_ctx, rs_for(rs));
     if (bs) ID3D11DeviceContext_OMSetBlendState(g_ctx, bs, bf, 0xFFFFFFFFu);
     if (ds) ID3D11DeviceContext_OMSetDepthStencilState(g_ctx, ds, rs->stencil_ref & 0xFF);
     ID3D11DeviceContext_IASetInputLayout(g_ctx, g_layout);

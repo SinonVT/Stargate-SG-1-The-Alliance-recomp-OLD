@@ -1202,6 +1202,9 @@ static void current_render_state(Nv2aRenderState *r)
     r->stencil_fail      = s_reg[0x0370 / 4];        /* SET_STENCIL_OP_FAIL */
     r->stencil_zfail     = s_reg[0x0374 / 4];        /* SET_STENCIL_OP_ZFAIL */
     r->stencil_zpass     = s_reg[0x0378 / 4];        /* SET_STENCIL_OP_ZPASS */
+    r->poly_offset_fill  = s_reg[0x0338 / 4];        /* SG1: SET_POLY_OFFSET_FILL_ENABLE */
+    r->poly_offset_scale = reg_f(0x0384);            /* SET_POLYGON_OFFSET_SCALE_FACTOR */
+    r->poly_offset_bias  = reg_f(0x0388);            /* SET_POLYGON_OFFSET_BIAS */
 }
 
 static int sample_texture(uint32_t u, uint32_t v, uint32_t *argb);
@@ -2454,6 +2457,16 @@ static void ffp_texgen(uint32_t index, const float in[4], Nv2aVshOutput *out)
                     for (k = 0; k < 4; k++)
                         o[k] = v4[0] * m[4 * k] + v4[1] * m[4 * k + 1] + v4[2] * m[4 * k + 2] + v4[3] * m[4 * k + 3];
                     for (k = 0; k < 4; k++) out->tex[st][k] = o[k];
+                }
+            }
+            /* SG1: projected textures (UE2 projectors: M17's spinning red alarm beacons) come as a 3-component
+             * (s, t, q) stream with the texture matrix on. The divide must use that third component; it was left
+             * in r with q = 1, so the projection was never divided and the beacons never showed. SG1_NO_PROJ3=1 = old way. */
+            {   static int np3 = -1;
+                if (np3 < 0) np3 = getenv("SG1_NO_PROJ3") != NULL;
+                if (!np3 && s_gpu.attr[9 + st].size == 3 && (s_reg[(0x0420 + 4 * st) / 4] & 1) && out->tex[st][3] == 1.0f
+                        && ((s_gpu.rc.stage_program >> (5 * st)) & 31u) == 1u && out->tex[st][2] != 0.0f) {
+                    out->tex[st][3] = out->tex[st][2]; out->tex[st][2] = 0.0f;
                 }
             }
             continue;

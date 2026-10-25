@@ -82,6 +82,10 @@ typedef struct {
      * that ignores these draws that pass over the whole surface. */
     uint32_t stencil_enable, stencil_func, stencil_ref, stencil_func_mask;
     uint32_t stencil_write_mask, stencil_fail, stencil_zfail, stencil_zpass;
+    /* SG1: SET_POLY_OFFSET_FILL_ENABLE / SET_POLYGON_OFFSET_SCALE_FACTOR / _BIAS (D3D ZBIAS:
+     * decals and projected shadows sit on the surface they cover without z-fighting). */
+    uint32_t poly_offset_fill;
+    float    poly_offset_scale, poly_offset_bias;
 } Nv2aRenderState;
 
 typedef struct {
